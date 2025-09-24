@@ -1,0 +1,36 @@
+# Virtual environments
+venv/
+venv12/
+venv312/
+.env/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Jupyter / IPython
+.ipynb_checkpoints/
+
+# OS / Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Data / results (don't commit large raw data)
+data/
+results/
+*.fastq
+*.fq
+*.fasta
+*.fa
+
+# Logs, databases
+*.log
+*.sqlite3
+*.db
+
+# Python packaging
+dist/
+build/
+*.egg-info/
