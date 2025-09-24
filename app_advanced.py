@@ -77,3 +77,9 @@ if uploaded_file:
     # ---------------- CSV Download ----------------
     csv = results_df.to_csv(index=False).encode("utf-8")
     st.download_button("⬇️ Download Results CSV", csv, "results.csv", "text/csv")
+
+# To run the app: streamlit run app_advanced.py
+# If using a virtual environment, activate it first: venv312\Scripts\activate
+
+# Required installations
+# !pip install streamlit pandas plotly biopython ete3
