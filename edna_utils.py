@@ -2,20 +2,14 @@ import math
 import os
 from Bio.Blast import NCBIWWW, NCBIXML   # Needs Biopython
 from Bio import Entrez
-from ete3 import NCBITaxa
 
 # ---------------- API CONFIG ----------------
 Entrez.email = "atharvanimbalkarsr4@gmail.com"   # Change to your email
-# Use API key from environment (do NOT hardcode!)
 if "NCBI_API_KEY" in os.environ:
     Entrez.api_key = os.environ["d13f178d009574dccc6a3737da9f84c96a08"]
 
-ncbi = NCBITaxa()
-
-
 # ---------------- FASTA Parsing ----------------
 def parse_fasta(fasta_str):
-    """Parse a FASTA string into a dictionary {seq_id: sequence}."""
     sequences = {}
     seq_id = None
     seq = []
@@ -26,7 +20,7 @@ def parse_fasta(fasta_str):
         if line.startswith(">"):
             if seq_id:
                 sequences[seq_id] = "".join(seq)
-            seq_id = line[1:].split()[0]  # Take first token as ID
+            seq_id = line[1:].split()[0]
             seq = []
         else:
             seq.append(line)
@@ -34,19 +28,13 @@ def parse_fasta(fasta_str):
         sequences[seq_id] = "".join(seq)
     return sequences
 
-
-# ---------------- SPECIES CLEANUP ----------------
 def clean_species_name(name):
-    """Remove strain or extra details, keep only Genus + species."""
     tokens = name.split()
     if len(tokens) >= 2:
         return " ".join(tokens[:2])
     return name
 
-
-# ---------------- MOCK BLAST ----------------
 def mock_blast(sequence):
-    """Return mock BLAST results for testing/demo purposes."""
     if "ATG" in sequence:
         return {
             "species": "Bathyporeia spp.",
@@ -59,10 +47,7 @@ def mock_blast(sequence):
         "accession": None
     }
 
-
-# ---------------- REAL BLAST ----------------
 def run_blast(sequence):
-    """Run BLAST against NCBI nt database via API and return first hit info."""
     try:
         result_handle = NCBIWWW.qblast("blastn", "nt", sequence, hitlist_size=1)
         blast_record = NCBIXML.read(result_handle)
@@ -87,30 +72,7 @@ def run_blast(sequence):
         "accession": None
     }
 
-
-# ---------------- TAXONOMY (ETE / Entrez fallback) ----------------
-def get_taxonomy_ete(scientific_name):
-    """Fetch taxonomy (kingdom, phylum, class) from local ETE NCBI database."""
-    try:
-        name2taxid = ncbi.get_name_translator([scientific_name])
-        if not name2taxid or scientific_name not in name2taxid:
-            return {"kingdom": "Unknown", "phylum": "Unknown", "class": "Unknown"}
-        taxid = name2taxid[scientific_name][0]
-        lineage = ncbi.get_lineage(taxid)
-        ranks = ncbi.get_rank(lineage)
-        names = ncbi.get_taxid_translator(lineage)
-        taxonomy = {"kingdom": "Unknown", "phylum": "Unknown", "class": "Unknown"}
-        for tid in lineage:
-            rank = ranks.get(tid, "")
-            if rank in taxonomy:
-                taxonomy[rank] = names[tid]
-        return taxonomy
-    except Exception:
-        return {"kingdom": "Unknown", "phylum": "Unknown", "class": "Unknown"}
-
-
 def get_taxonomy_entrez(scientific_name):
-    """Fetch taxonomy (kingdom, phylum, class) from NCBI Entrez for a given scientific name."""
     try:
         handle = Entrez.esearch(db="taxonomy", term=scientific_name)
         record = Entrez.read(handle)
@@ -128,22 +90,15 @@ def get_taxonomy_entrez(scientific_name):
         pass
     return {"kingdom": "Unknown", "phylum": "Unknown", "class": "Unknown"}
 
-
-# ---------------- Diversity Indices ----------------
 def shannon_index(counts):
-    """Shannon Diversity Index."""
     total = sum(counts.values())
     return -sum((c / total) * math.log(c / total) for c in counts.values() if c > 0)
 
-
 def simpson_index(counts):
-    """Simpson Diversity Index."""
     total = sum(counts.values())
     return 1 - sum((c / total) ** 2 for c in counts.values() if c > 0)
 
-
 def chao1(counts):
-    """Chao1 species richness estimator."""
     counts_list = list(counts.values())
     S_obs = sum(1 for c in counts_list if c > 0)
     F1 = sum(1 for c in counts_list if c == 1)
