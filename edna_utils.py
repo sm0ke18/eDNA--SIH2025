@@ -1,12 +1,17 @@
 import math
+import os
 from Bio.Blast import NCBIWWW, NCBIXML   # Needs Biopython
 from Bio import Entrez
 from ete3 import NCBITaxa
 
+# ---------------- API CONFIG ----------------
+Entrez.email = "atharvanimbalkarsr4@gmail.com"   # Change to your email
+# Use API key from environment (do NOT hardcode!)
+if "NCBI_API_KEY" in os.environ:
+    Entrez.api_key = os.environ["d13f178d009574dccc6a3737da9f84c96a08"]
 
-
-Entrez.email = "atharvanimbalkar18@gmail.com"  # <-- Replace with your email
 ncbi = NCBITaxa()
+
 
 # ---------------- FASTA Parsing ----------------
 def parse_fasta(fasta_str):
@@ -29,6 +34,16 @@ def parse_fasta(fasta_str):
         sequences[seq_id] = "".join(seq)
     return sequences
 
+
+# ---------------- SPECIES CLEANUP ----------------
+def clean_species_name(name):
+    """Remove strain or extra details, keep only Genus + species."""
+    tokens = name.split()
+    if len(tokens) >= 2:
+        return " ".join(tokens[:2])
+    return name
+
+
 # ---------------- MOCK BLAST ----------------
 def mock_blast(sequence):
     """Return mock BLAST results for testing/demo purposes."""
@@ -44,17 +59,20 @@ def mock_blast(sequence):
         "accession": None
     }
 
+
 # ---------------- REAL BLAST ----------------
 def run_blast(sequence):
-    """Run BLAST against NCBI nt database and return first hit info."""
+    """Run BLAST against NCBI nt database via API and return first hit info."""
     try:
-        result_handle = NCBIWWW.qblast("blastn", "nt", sequence)
+        result_handle = NCBIWWW.qblast("blastn", "nt", sequence, hitlist_size=1)
         blast_record = NCBIXML.read(result_handle)
         if blast_record.alignments:
             first_hit = blast_record.alignments[0]
+            hit_def = first_hit.hit_def
+            species_name = clean_species_name(hit_def)
             return {
-                "species": " ".join(first_hit.hit_def.split()[0:2]),
-                "hit_def": first_hit.hit_def,
+                "species": species_name,
+                "hit_def": hit_def,
                 "accession": first_hit.accession
             }
     except Exception as e:
@@ -69,26 +87,8 @@ def run_blast(sequence):
         "accession": None
     }
 
-# ---------------- Entrez Taxonomy ----------------
-def get_taxonomy_entrez(scientific_name):
-    """Fetch taxonomy (kingdom, phylum, class) from NCBI Entrez for a given scientific name."""
-    try:
-        handle = Entrez.esearch(db="taxonomy", term=scientific_name)
-        record = Entrez.read(handle)
-        if record["IdList"]:
-            taxid = record["IdList"][0]
-            handle = Entrez.efetch(db="taxonomy", id=taxid)
-            records = Entrez.read(handle)
-            lineage = {d['Rank']: d['ScientificName'] for d in records[0]['LineageEx']}
-            return {
-                "kingdom": lineage.get("kingdom", "Unknown"),
-                "phylum": lineage.get("phylum", "Unknown"),
-                "class": lineage.get("class", "Unknown")
-            }
-    except Exception:
-        pass
-    return {"kingdom": "Unknown", "phylum": "Unknown", "class": "Unknown"}
 
+# ---------------- TAXONOMY (ETE / Entrez fallback) ----------------
 def get_taxonomy_ete(scientific_name):
     """Fetch taxonomy (kingdom, phylum, class) from local ETE NCBI database."""
     try:
@@ -108,16 +108,39 @@ def get_taxonomy_ete(scientific_name):
     except Exception:
         return {"kingdom": "Unknown", "phylum": "Unknown", "class": "Unknown"}
 
+
+def get_taxonomy_entrez(scientific_name):
+    """Fetch taxonomy (kingdom, phylum, class) from NCBI Entrez for a given scientific name."""
+    try:
+        handle = Entrez.esearch(db="taxonomy", term=scientific_name)
+        record = Entrez.read(handle)
+        if record["IdList"]:
+            taxid = record["IdList"][0]
+            handle = Entrez.efetch(db="taxonomy", id=taxid)
+            records = Entrez.read(handle)
+            lineage = {d['Rank']: d['ScientificName'] for d in records[0]['LineageEx']}
+            return {
+                "kingdom": lineage.get("kingdom", "Unknown"),
+                "phylum": lineage.get("phylum", "Unknown"),
+                "class": lineage.get("class", "Unknown")
+            }
+    except Exception:
+        pass
+    return {"kingdom": "Unknown", "phylum": "Unknown", "class": "Unknown"}
+
+
 # ---------------- Diversity Indices ----------------
 def shannon_index(counts):
     """Shannon Diversity Index."""
     total = sum(counts.values())
     return -sum((c / total) * math.log(c / total) for c in counts.values() if c > 0)
 
+
 def simpson_index(counts):
     """Simpson Diversity Index."""
     total = sum(counts.values())
     return 1 - sum((c / total) ** 2 for c in counts.values() if c > 0)
+
 
 def chao1(counts):
     """Chao1 species richness estimator."""
