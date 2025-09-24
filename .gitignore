@@ -34,3 +34,6 @@ results/
 dist/
 build/
 *.egg-info/
+
+taxdump.tar.gz
+taxa.tab
